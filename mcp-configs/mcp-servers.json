@@ -16,11 +16,6 @@
       },
       "description": "Web scraping and crawling"
     },
-    "supabase": {
-      "command": "npx",
-      "args": ["-y", "@supabase/mcp-server-supabase@latest", "--project-ref=YOUR_PROJECT_REF"],
-      "description": "Supabase database operations"
-    },
     "memory": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"],
@@ -31,61 +26,91 @@
       "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
       "description": "Chain-of-thought reasoning"
     },
-    "vercel": {
-      "type": "http",
-      "url": "https://mcp.vercel.com",
-      "description": "Vercel deployments and projects"
-    },
-    "railway": {
+    "postgres": {
       "command": "npx",
-      "args": ["-y", "@railway/mcp-server"],
-      "description": "Railway deployments"
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://user:password@localhost:5432/dbname"
+      },
+      "description": "PostgreSQL database operations"
     },
-    "cloudflare-docs": {
-      "type": "http",
-      "url": "https://docs.mcp.cloudflare.com/mcp",
-      "description": "Cloudflare documentation search"
+    "redis": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-redis"],
+      "env": {
+        "REDIS_URL": "redis://localhost:6379"
+      },
+      "description": "Redis cache operations"
     },
-    "cloudflare-workers-builds": {
-      "type": "http",
-      "url": "https://builds.mcp.cloudflare.com/mcp",
-      "description": "Cloudflare Workers builds"
+    "docker": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-docker"],
+      "description": "Docker container management"
     },
-    "cloudflare-workers-bindings": {
-      "type": "http",
-      "url": "https://bindings.mcp.cloudflare.com/mcp",
-      "description": "Cloudflare Workers bindings"
-    },
-    "cloudflare-observability": {
-      "type": "http",
-      "url": "https://observability.mcp.cloudflare.com/mcp",
-      "description": "Cloudflare observability/logs"
-    },
-    "clickhouse": {
-      "type": "http",
-      "url": "https://mcp.clickhouse.cloud/mcp",
-      "description": "ClickHouse analytics queries"
+    "kubernetes": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-kubernetes"],
+      "description": "Kubernetes cluster operations"
     },
     "context7": {
       "command": "npx",
       "args": ["-y", "@context7/mcp-server"],
-      "description": "Live documentation lookup"
-    },
-    "magic": {
-      "command": "npx",
-      "args": ["-y", "@magicuidesign/mcp@latest"],
-      "description": "Magic UI components"
+      "description": "Live documentation lookup (Spring, Kotlin docs)"
     },
     "filesystem": {
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/your/projects"],
       "description": "Filesystem operations (set your path)"
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "YOUR_SLACK_BOT_TOKEN",
+        "SLACK_TEAM_ID": "YOUR_SLACK_TEAM_ID"
+      },
+      "description": "Slack integration for notifications"
+    },
+    "sentry": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sentry"],
+      "env": {
+        "SENTRY_AUTH_TOKEN": "YOUR_SENTRY_AUTH_TOKEN"
+      },
+      "description": "Sentry error tracking"
+    },
+    "datadog": {
+      "type": "http",
+      "url": "https://mcp.datadoghq.com",
+      "description": "Datadog APM and monitoring"
+    },
+    "grafana": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-grafana"],
+      "env": {
+        "GRAFANA_URL": "http://localhost:3000",
+        "GRAFANA_API_KEY": "YOUR_GRAFANA_API_KEY"
+      },
+      "description": "Grafana dashboards and metrics"
+    },
+    "aws": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-aws"],
+      "description": "AWS services (S3, EC2, RDS, etc.)"
     }
   },
   "_comments": {
     "usage": "Copy the servers you need to your ~/.claude.json mcpServers section",
     "env_vars": "Replace YOUR_*_HERE placeholders with actual values",
     "disabling": "Use disabledMcpServers array in project config to disable per-project",
-    "context_warning": "Keep under 10 MCPs enabled to preserve context window"
+    "context_warning": "Keep under 10 MCPs enabled to preserve context window",
+    "kotlin_spring_notes": {
+      "postgres": "Common DB for Spring Boot apps",
+      "redis": "Spring Cache with Redis support",
+      "docker": "For containerized Spring Boot deployments",
+      "kubernetes": "For K8s deployments with Spring Cloud Kubernetes",
+      "context7": "Useful for looking up Spring/Kotlin documentation",
+      "sentry_datadog_grafana": "Common observability stack for JVM apps"
+    }
   }
 }
