@@ -36,57 +36,55 @@ The planner agent will:
 ## Example Usage
 
 ```
-User: /plan I need to add real-time notifications when markets resolve
+User: /plan I need to add real-time notifications when orders are completed
 
 Agent (planner):
-# Implementation Plan: Real-Time Market Resolution Notifications
+# Implementation Plan: Real-Time Order Completion Notifications
 
 ## Requirements Restatement
-- Send notifications to users when markets they're watching resolve
+- Send notifications to users when their orders are completed
 - Support multiple notification channels (in-app, email, webhook)
 - Ensure notifications are delivered reliably
-- Include market outcome and user's position result
+- Include order details and status in notification
 
 ## Implementation Phases
 
 ### Phase 1: Database Schema
-- Add notifications table with columns: id, user_id, market_id, type, status, created_at
+- Add notifications table: id, user_id, order_id, type, status, created_at
 - Add user_notification_preferences table for channel preferences
-- Create indexes on user_id and market_id for performance
+- Create Flyway migration scripts
+- Add indexes on user_id and order_id for performance
 
 ### Phase 2: Notification Service
-- Create notification service in lib/notifications.ts
-- Implement notification queue using BullMQ/Redis
-- Add retry logic for failed deliveries
+- Create NotificationService in notification package
+- Implement notification queue using Spring AMQP/RabbitMQ
+- Add retry logic with @Retryable annotation
 - Create notification templates
 
-### Phase 3: Integration Points
-- Hook into market resolution logic (when status changes to "resolved")
-- Query all users with positions in market
-- Enqueue notifications for each user
+### Phase 3: Event Integration
+- Create OrderCompletedEvent class
+- Publish event from OrderService when status changes to COMPLETED
+- Create NotificationEventListener with @EventListener
+- Enqueue notifications for each relevant user
 
-### Phase 4: Frontend Components
-- Create NotificationBell component in header
-- Add NotificationList modal
-- Implement real-time updates via Supabase subscriptions
-- Add notification preferences page
+### Phase 4: REST API & WebSocket
+- Create NotificationController for REST endpoints
+- Implement WebSocket with Spring WebSocket/STOMP
+- Add real-time push notifications
+- Create notification preferences endpoint
 
 ## Dependencies
-- Redis (for queue)
-- Email service (SendGrid/Resend)
-- Supabase real-time subscriptions
+- RabbitMQ (for message queue)
+- Spring Mail (for email notifications)
+- Spring WebSocket (for real-time updates)
 
 ## Risks
-- HIGH: Email deliverability (SPF/DKIM required)
-- MEDIUM: Performance with 1000+ users per market
-- MEDIUM: Notification spam if markets resolve frequently
-- LOW: Real-time subscription overhead
+- HIGH: Email deliverability (SPF/DKIM configuration required)
+- MEDIUM: Performance with high volume orders
+- MEDIUM: WebSocket connection management at scale
+- LOW: Message queue reliability
 
 ## Estimated Complexity: MEDIUM
-- Backend: 4-6 hours
-- Frontend: 3-4 hours
-- Testing: 2-3 hours
-- Total: 9-13 hours
 
 **WAITING FOR CONFIRMATION**: Proceed with this plan? (yes/no/modify)
 ```
@@ -104,7 +102,7 @@ If you want changes, respond with:
 
 After planning:
 - Use `/tdd` to implement with test-driven development
-- Use `/build-and-fix` if build errors occur
+- Use `/build-fix` if build errors occur
 - Use `/code-review` to review completed implementation
 
 ## Related Agents
