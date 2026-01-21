@@ -40,14 +40,14 @@ everything-claude-code/
 |   |-- code-reviewer.md     # Quality and security review
 |   |-- security-reviewer.md # Vulnerability analysis
 |   |-- build-error-resolver.md
-|   |-- e2e-runner.md        # Playwright E2E testing
+|   |-- e2e-runner.md        # Selenium E2E testing
 |   |-- refactor-cleaner.md  # Dead code cleanup
 |   |-- doc-updater.md       # Documentation sync
 |
 |-- skills/           # Workflow definitions and domain knowledge
 |   |-- coding-standards.md         # Language best practices
 |   |-- backend-patterns.md         # API, database, caching patterns
-|   |-- frontend-patterns.md        # React, Next.js patterns
+|   |-- frontend-patterns.md        # Thymeleaf, HTMX patterns
 |   |-- project-guidelines-example.md # Example project-specific skill
 |   |-- tdd-workflow/               # TDD methodology
 |   |-- security-review/            # Security checklist
@@ -161,14 +161,14 @@ Skills are workflow definitions invoked by commands or agents:
 
 ### Hooks
 
-Hooks fire on tool events. Example - warn about console.log:
+Hooks fire on tool events. Example - warn about println in Kotlin:
 
 ```json
 {
-  "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\\\.(ts|tsx|js|jsx)$\"",
+  "matcher": "tool == \"Edit\" && tool_input.file_path matches \"\\\\.kt$\"",
   "hooks": [{
     "type": "command",
-    "command": "#!/bin/bash\ngrep -n 'console\\.log' \"$file_path\" && echo '[Hook] Remove console.log' >&2"
+    "command": "#!/bin/bash\ngrep -n 'println' \"$file_path\" && echo '[Hook] Remove println - use logger instead' >&2"
   }]
 }
 ```

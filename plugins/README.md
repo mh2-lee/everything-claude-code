@@ -35,13 +35,13 @@ claude plugin marketplace add https://github.com/mixedbread-ai/mgrep
 /plugins
 
 # Or install directly
-claude plugin install typescript-lsp@claude-plugins-official
+claude plugin install kotlin-lsp@claude-plugins-official
 ```
 
 ### Recommended Plugins
 
 **Development:**
-- `typescript-lsp` - TypeScript intelligence
+- `kotlin-lsp` - Kotlin intelligence
 - `pyright-lsp` - Python type checking
 - `hookify` - Create hooks conversationally
 - `code-simplifier` - Refactor code
