@@ -18,7 +18,7 @@ This command invokes the **tdd-guide** agent to enforce test-driven development 
 
 Use `/tdd` when:
 - Implementing new features
-- Adding new functions/components
+- Adding new functions/services
 - Fixing bugs (write test that reproduces bug first)
 - Refactoring existing code
 - Building critical business logic
@@ -55,80 +55,103 @@ Agent (tdd-guide):
 # TDD Session: Market Liquidity Score Calculator
 
 ## Step 1: Define Interface (SCAFFOLD)
+```
 
-```typescript
-// lib/liquidity.ts
-export interface MarketData {
-  totalVolume: number
-  bidAskSpread: number
-  activeTraders: number
-  lastTradeTime: Date
-}
+```kotlin
+// src/main/kotlin/com/example/market/LiquidityCalculator.kt
+package com.example.market
 
-export function calculateLiquidityScore(market: MarketData): number {
-  // TODO: Implementation
-  throw new Error('Not implemented')
+import java.time.Instant
+
+data class MarketData(
+    val totalVolume: Long,
+    val bidAskSpread: Double,
+    val activeTraders: Int,
+    val lastTradeTime: Instant
+)
+
+fun calculateLiquidityScore(market: MarketData): Double {
+    // TODO: Implementation
+    throw NotImplementedError("Not implemented")
 }
 ```
 
 ## Step 2: Write Failing Test (RED)
 
-```typescript
-// lib/liquidity.test.ts
-import { calculateLiquidityScore } from './liquidity'
+```kotlin
+// src/test/kotlin/com/example/market/LiquidityCalculatorTest.kt
+package com.example.market
 
-describe('calculateLiquidityScore', () => {
-  it('should return high score for liquid market', () => {
-    const market = {
-      totalVolume: 100000,
-      bidAskSpread: 0.01,
-      activeTraders: 500,
-      lastTradeTime: new Date()
+import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
+import org.assertj.core.api.Assertions.assertThat
+import java.time.Instant
+
+class LiquidityCalculatorTest {
+
+    @Test
+    fun `should return high score for liquid market`() {
+        // Given
+        val market = MarketData(
+            totalVolume = 100_000,
+            bidAskSpread = 0.01,
+            activeTraders = 500,
+            lastTradeTime = Instant.now()
+        )
+
+        // When
+        val score = calculateLiquidityScore(market)
+
+        // Then
+        assertThat(score).isGreaterThan(80.0)
+        assertThat(score).isLessThanOrEqualTo(100.0)
     }
 
-    const score = calculateLiquidityScore(market)
+    @Test
+    fun `should return low score for illiquid market`() {
+        // Given
+        val market = MarketData(
+            totalVolume = 100,
+            bidAskSpread = 0.5,
+            activeTraders = 2,
+            lastTradeTime = Instant.now().minusSeconds(86400) // 1 day ago
+        )
 
-    expect(score).toBeGreaterThan(80)
-    expect(score).toBeLessThanOrEqual(100)
-  })
+        // When
+        val score = calculateLiquidityScore(market)
 
-  it('should return low score for illiquid market', () => {
-    const market = {
-      totalVolume: 100,
-      bidAskSpread: 0.5,
-      activeTraders: 2,
-      lastTradeTime: new Date(Date.now() - 86400000) // 1 day ago
+        // Then
+        assertThat(score).isLessThan(30.0)
+        assertThat(score).isGreaterThanOrEqualTo(0.0)
     }
 
-    const score = calculateLiquidityScore(market)
+    @Test
+    fun `should handle edge case - zero volume`() {
+        // Given
+        val market = MarketData(
+            totalVolume = 0,
+            bidAskSpread = 0.0,
+            activeTraders = 0,
+            lastTradeTime = Instant.now()
+        )
 
-    expect(score).toBeLessThan(30)
-    expect(score).toBeGreaterThanOrEqual(0)
-  })
+        // When
+        val score = calculateLiquidityScore(market)
 
-  it('should handle edge case: zero volume', () => {
-    const market = {
-      totalVolume: 0,
-      bidAskSpread: 0,
-      activeTraders: 0,
-      lastTradeTime: new Date()
+        // Then
+        assertThat(score).isEqualTo(0.0)
     }
-
-    const score = calculateLiquidityScore(market)
-
-    expect(score).toBe(0)
-  })
-})
+}
 ```
 
 ## Step 3: Run Tests - Verify FAIL
 
 ```bash
-npm test lib/liquidity.test.ts
+./gradlew test --tests "LiquidityCalculatorTest"
 
-FAIL lib/liquidity.test.ts
-  ✕ should return high score for liquid market (2 ms)
-    Error: Not implemented
+FAIL com.example.market.LiquidityCalculatorTest
+  ✕ should return high score for liquid market
+    NotImplementedError: Not implemented
 
 1 test failed, 0 passed
 ```
@@ -137,44 +160,51 @@ FAIL lib/liquidity.test.ts
 
 ## Step 4: Implement Minimal Code (GREEN)
 
-```typescript
-// lib/liquidity.ts
-export function calculateLiquidityScore(market: MarketData): number {
-  // Handle zero volume edge case
-  if (market.totalVolume === 0) {
-    return 0
-  }
+```kotlin
+// src/main/kotlin/com/example/market/LiquidityCalculator.kt
+package com.example.market
 
-  // Calculate component scores (0-100 scale)
-  const volumeScore = Math.min(market.totalVolume / 1000, 100)
-  const spreadScore = Math.max(100 - (market.bidAskSpread * 1000), 0)
-  const traderScore = Math.min(market.activeTraders / 10, 100)
+import java.time.Duration
+import java.time.Instant
+import kotlin.math.max
+import kotlin.math.min
 
-  // Recent activity bonus
-  const hoursSinceLastTrade = (Date.now() - market.lastTradeTime.getTime()) / (1000 * 60 * 60)
-  const recencyScore = Math.max(100 - (hoursSinceLastTrade * 10), 0)
+fun calculateLiquidityScore(market: MarketData): Double {
+    // Handle zero volume edge case
+    if (market.totalVolume == 0L) {
+        return 0.0
+    }
 
-  // Weighted average
-  const score = (
-    volumeScore * 0.4 +
-    spreadScore * 0.3 +
-    traderScore * 0.2 +
-    recencyScore * 0.1
-  )
+    // Calculate component scores (0-100 scale)
+    val volumeScore = min(market.totalVolume / 1000.0, 100.0)
+    val spreadScore = max(100 - (market.bidAskSpread * 1000), 0.0)
+    val traderScore = min(market.activeTraders / 10.0, 100.0)
 
-  return Math.min(Math.max(score, 0), 100) // Clamp to 0-100
+    // Recent activity bonus
+    val hoursSinceLastTrade = Duration.between(market.lastTradeTime, Instant.now()).toHours()
+    val recencyScore = max(100 - (hoursSinceLastTrade * 10), 0.0)
+
+    // Weighted average
+    val score = (
+        volumeScore * 0.4 +
+        spreadScore * 0.3 +
+        traderScore * 0.2 +
+        recencyScore * 0.1
+    )
+
+    return score.coerceIn(0.0, 100.0)
 }
 ```
 
 ## Step 5: Run Tests - Verify PASS
 
 ```bash
-npm test lib/liquidity.test.ts
+./gradlew test --tests "LiquidityCalculatorTest"
 
-PASS lib/liquidity.test.ts
-  ✓ should return high score for liquid market (3 ms)
-  ✓ should return low score for illiquid market (2 ms)
-  ✓ should handle edge case: zero volume (1 ms)
+PASS com.example.market.LiquidityCalculatorTest
+  ✓ should return high score for liquid market (12 ms)
+  ✓ should return low score for illiquid market (3 ms)
+  ✓ should handle edge case - zero volume (2 ms)
 
 3 tests passed
 ```
@@ -183,55 +213,58 @@ PASS lib/liquidity.test.ts
 
 ## Step 6: Refactor (IMPROVE)
 
-```typescript
-// lib/liquidity.ts - Refactored with constants and better readability
-const WEIGHTS = {
-  VOLUME: 0.4,
-  SPREAD: 0.3,
-  TRADERS: 0.2,
-  RECENCY: 0.1,
-} as const
+```kotlin
+// src/main/kotlin/com/example/market/LiquidityCalculator.kt
+package com.example.market
 
-const SCALE_FACTORS = {
-  VOLUME: 1000,
-  SPREAD: 1000,
-  TRADERS: 10,
-  RECENCY_PENALTY: 10,
-} as const
+import java.time.Duration
+import java.time.Instant
+import kotlin.math.max
+import kotlin.math.min
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max)
+private object Weights {
+    const val VOLUME = 0.4
+    const val SPREAD = 0.3
+    const val TRADERS = 0.2
+    const val RECENCY = 0.1
 }
 
-export function calculateLiquidityScore(market: MarketData): number {
-  if (market.totalVolume === 0) return 0
+private object ScaleFactors {
+    const val VOLUME = 1000.0
+    const val SPREAD = 1000.0
+    const val TRADERS = 10.0
+    const val RECENCY_PENALTY = 10.0
+}
 
-  const volumeScore = Math.min(market.totalVolume / SCALE_FACTORS.VOLUME, 100)
-  const spreadScore = clamp(100 - (market.bidAskSpread * SCALE_FACTORS.SPREAD), 0, 100)
-  const traderScore = Math.min(market.activeTraders / SCALE_FACTORS.TRADERS, 100)
+fun calculateLiquidityScore(market: MarketData): Double {
+    if (market.totalVolume == 0L) return 0.0
 
-  const hoursSinceLastTrade = (Date.now() - market.lastTradeTime.getTime()) / (1000 * 60 * 60)
-  const recencyScore = clamp(100 - (hoursSinceLastTrade * SCALE_FACTORS.RECENCY_PENALTY), 0, 100)
+    val volumeScore = (market.totalVolume / ScaleFactors.VOLUME).coerceAtMost(100.0)
+    val spreadScore = (100 - market.bidAskSpread * ScaleFactors.SPREAD).coerceIn(0.0, 100.0)
+    val traderScore = (market.activeTraders / ScaleFactors.TRADERS).coerceAtMost(100.0)
 
-  const weightedScore =
-    volumeScore * WEIGHTS.VOLUME +
-    spreadScore * WEIGHTS.SPREAD +
-    traderScore * WEIGHTS.TRADERS +
-    recencyScore * WEIGHTS.RECENCY
+    val hoursSinceLastTrade = Duration.between(market.lastTradeTime, Instant.now()).toHours()
+    val recencyScore = (100 - hoursSinceLastTrade * ScaleFactors.RECENCY_PENALTY).coerceIn(0.0, 100.0)
 
-  return clamp(weightedScore, 0, 100)
+    val weightedScore =
+        volumeScore * Weights.VOLUME +
+        spreadScore * Weights.SPREAD +
+        traderScore * Weights.TRADERS +
+        recencyScore * Weights.RECENCY
+
+    return weightedScore.coerceIn(0.0, 100.0)
 }
 ```
 
 ## Step 7: Verify Tests Still Pass
 
 ```bash
-npm test lib/liquidity.test.ts
+./gradlew test --tests "LiquidityCalculatorTest"
 
-PASS lib/liquidity.test.ts
-  ✓ should return high score for liquid market (3 ms)
+PASS com.example.market.LiquidityCalculatorTest
+  ✓ should return high score for liquid market (10 ms)
   ✓ should return low score for illiquid market (2 ms)
-  ✓ should handle edge case: zero volume (1 ms)
+  ✓ should handle edge case - zero volume (1 ms)
 
 3 tests passed
 ```
@@ -241,17 +274,16 @@ PASS lib/liquidity.test.ts
 ## Step 8: Check Coverage
 
 ```bash
-npm test -- --coverage lib/liquidity.test.ts
+./gradlew test jacocoTestReport
 
-File           | % Stmts | % Branch | % Funcs | % Lines
----------------|---------|----------|---------|--------
-liquidity.ts   |   100   |   100    |   100   |   100
+File                      | % Lines | % Branches
+--------------------------|---------|----------
+LiquidityCalculator.kt    |   100%  |   100%
 
 Coverage: 100% ✅ (Target: 80%)
 ```
 
 ✅ TDD session complete!
-```
 
 ## TDD Best Practices
 
@@ -275,15 +307,14 @@ Coverage: 100% ✅ (Target: 80%)
 
 **Unit Tests** (Function-level):
 - Happy path scenarios
-- Edge cases (empty, null, max values)
+- Edge cases (null, empty, max values)
 - Error conditions
 - Boundary values
 
-**Integration Tests** (Component-level):
-- API endpoints
-- Database operations
+**Integration Tests** (Service-level):
+- API endpoints with @SpringBootTest
+- Database operations with @DataJpaTest
 - External service calls
-- React components with hooks
 
 **E2E Tests** (use `/e2e` command):
 - Critical user flows
@@ -299,6 +330,22 @@ Coverage: 100% ✅ (Target: 80%)
   - Security-critical code
   - Core business logic
 
+## Running Tests
+
+```bash
+# Run all tests
+./gradlew test
+
+# Run specific test class
+./gradlew test --tests "LiquidityCalculatorTest"
+
+# Run with coverage
+./gradlew test jacocoTestReport
+
+# View coverage report
+open build/reports/jacoco/test/html/index.html
+```
+
 ## Important Notes
 
 **MANDATORY**: Tests must be written BEFORE implementation. The TDD cycle is:
@@ -309,18 +356,10 @@ Coverage: 100% ✅ (Target: 80%)
 
 Never skip the RED phase. Never write code before tests.
 
-## Integration with Other Commands
+## Related Commands
 
 - Use `/plan` first to understand what to build
 - Use `/tdd` to implement with tests
-- Use `/build-and-fix` if build errors occur
+- Use `/build-fix` if build errors occur
 - Use `/code-review` to review implementation
 - Use `/test-coverage` to verify coverage
-
-## Related Agents
-
-This command invokes the `tdd-guide` agent located at:
-`~/.claude/agents/tdd-guide.md`
-
-And can reference the `tdd-workflow` skill at:
-`~/.claude/skills/tdd-workflow/`
