@@ -4,25 +4,35 @@
 
 Before ANY commit:
 - [ ] No hardcoded secrets (API keys, passwords, tokens)
-- [ ] All user inputs validated
-- [ ] SQL injection prevention (parameterized queries)
-- [ ] XSS prevention (sanitized HTML)
-- [ ] CSRF protection enabled
-- [ ] Authentication/authorization verified
-- [ ] Rate limiting on all endpoints
+- [ ] All user inputs validated (@Valid, @NotBlank, etc.)
+- [ ] SQL injection prevention (parameterized queries, Spring Data JPA)
+- [ ] XSS prevention (Thymeleaf th:text, sanitized HTML)
+- [ ] CSRF protection enabled (Spring Security)
+- [ ] Authentication/authorization verified (@PreAuthorize)
+- [ ] Rate limiting on all endpoints (Bucket4j, Resilience4j)
 - [ ] Error messages don't leak sensitive data
 
 ## Secret Management
 
-```typescript
+```kotlin
 // NEVER: Hardcoded secrets
-const apiKey = "sk-proj-xxxxx"
+val apiKey = "sk-proj-xxxxx"
 
-// ALWAYS: Environment variables
-const apiKey = process.env.OPENAI_API_KEY
+// ALWAYS: Environment variables via Spring
+@Value("\${openai.api-key}")
+private lateinit var apiKey: String
 
-if (!apiKey) {
-  throw new Error('OPENAI_API_KEY not configured')
+// Or with ConfigurationProperties
+@ConfigurationProperties(prefix = "app.secrets")
+data class SecretsProperties(
+    val openaiApiKey: String,
+    val jwtSecret: String
+)
+
+// Validate at startup
+@PostConstruct
+fun validateSecrets() {
+    require(apiKey.isNotBlank()) { "openai.api-key not configured" }
 }
 ```
 

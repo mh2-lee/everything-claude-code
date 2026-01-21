@@ -1,11 +1,11 @@
 ---
 name: coding-standards
-description: Universal coding standards, best practices, and patterns for TypeScript, JavaScript, React, and Node.js development.
+description: Universal coding standards, best practices, and patterns for Kotlin and Spring Boot development.
 ---
 
 # Coding Standards & Best Practices
 
-Universal coding standards applicable across all projects.
+Universal coding standards applicable across all Kotlin/Spring Boot projects.
 
 ## Code Quality Principles
 
@@ -13,7 +13,7 @@ Universal coding standards applicable across all projects.
 - Code is read more than written
 - Clear variable and function names
 - Self-documenting code preferred over comments
-- Consistent formatting
+- Consistent formatting (ktlint)
 
 ### 2. KISS (Keep It Simple, Stupid)
 - Simplest solution that works
@@ -33,196 +33,284 @@ Universal coding standards applicable across all projects.
 - Add complexity only when required
 - Start simple, refactor when needed
 
-## TypeScript/JavaScript Standards
+## Kotlin Standards
 
 ### Variable Naming
 
-```typescript
+```kotlin
 // ✅ GOOD: Descriptive names
-const marketSearchQuery = 'election'
-const isUserAuthenticated = true
-const totalRevenue = 1000
+val marketSearchQuery = "election"
+val isUserAuthenticated = true
+val totalRevenue = BigDecimal("1000.00")
 
 // ❌ BAD: Unclear names
-const q = 'election'
-const flag = true
-const x = 1000
+val q = "election"
+val flag = true
+val x = BigDecimal("1000.00")
 ```
 
 ### Function Naming
 
-```typescript
+```kotlin
 // ✅ GOOD: Verb-noun pattern
-async function fetchMarketData(marketId: string) { }
-function calculateSimilarity(a: number[], b: number[]) { }
-function isValidEmail(email: string): boolean { }
+suspend fun fetchMarketData(marketId: Long): Market
+fun calculateSimilarity(a: List<Double>, b: List<Double>): Double
+fun isValidEmail(email: String): Boolean
 
 // ❌ BAD: Unclear or noun-only
-async function market(id: string) { }
-function similarity(a, b) { }
-function email(e) { }
+suspend fun market(id: Long): Market
+fun similarity(a: List<Double>, b: List<Double>): Double
+fun email(e: String): Boolean
 ```
 
 ### Immutability Pattern (CRITICAL)
 
-```typescript
-// ✅ ALWAYS use spread operator
-const updatedUser = {
-  ...user,
-  name: 'New Name'
+```kotlin
+// ✅ ALWAYS prefer val over var
+val user = User(name = "John", email = "john@example.com")
+
+// ✅ Use data class copy() for modifications
+val updatedUser = user.copy(name = "Jane")
+
+// ✅ Immutable collections
+val items = listOf("a", "b", "c")
+val updatedItems = items + "d"
+
+// ❌ NEVER mutate directly when possible
+var user = User(...)  // Avoid var
+user.name = "New Name"  // Avoid mutation
+
+// ❌ Mutable collections (use only when necessary)
+val mutableItems = mutableListOf<String>()
+mutableItems.add("item")  // Avoid if possible
+```
+
+### Null Safety
+
+```kotlin
+// ✅ GOOD: Safe call operator
+val name = user?.name ?: "Unknown"
+
+// ✅ GOOD: let for null checks
+user?.let {
+    processUser(it)
 }
 
-const updatedArray = [...items, newItem]
+// ✅ GOOD: Elvis operator with return/throw
+val email = user?.email ?: return
+val id = user?.id ?: throw IllegalArgumentException("User ID required")
 
-// ❌ NEVER mutate directly
-user.name = 'New Name'  // BAD
-items.push(newItem)     // BAD
+// ❌ BAD: !! operator (avoid unless absolutely certain)
+val name = user!!.name  // Can throw NPE
+
+// ❌ BAD: Java-style null checks
+if (user != null) {
+    if (user.name != null) {
+        println(user.name)
+    }
+}
 ```
 
 ### Error Handling
 
-```typescript
-// ✅ GOOD: Comprehensive error handling
-async function fetchData(url: string) {
-  try {
-    const response = await fetch(url)
+```kotlin
+// ✅ GOOD: Result type for expected failures
+sealed class Result<out T> {
+    data class Success<T>(val data: T) : Result<T>()
+    data class Error(val message: String, val cause: Throwable? = null) : Result<Nothing>()
+}
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+fun fetchUser(id: Long): Result<User> {
+    return try {
+        val user = userRepository.findById(id)
+            .orElse(null) ?: return Result.Error("User not found")
+        Result.Success(user)
+    } catch (e: Exception) {
+        logger.error("Failed to fetch user", e)
+        Result.Error("Failed to fetch user", e)
     }
-
-    return await response.json()
-  } catch (error) {
-    console.error('Fetch failed:', error)
-    throw new Error('Failed to fetch data')
-  }
 }
 
-// ❌ BAD: No error handling
-async function fetchData(url) {
-  const response = await fetch(url)
-  return response.json()
-}
-```
+// ✅ GOOD: runCatching for simple cases
+val result = runCatching { riskyOperation() }
+    .getOrElse { defaultValue }
 
-### Async/Await Best Practices
-
-```typescript
-// ✅ GOOD: Parallel execution when possible
-const [users, markets, stats] = await Promise.all([
-  fetchUsers(),
-  fetchMarkets(),
-  fetchStats()
-])
-
-// ❌ BAD: Sequential when unnecessary
-const users = await fetchUsers()
-const markets = await fetchMarkets()
-const stats = await fetchStats()
-```
-
-### Type Safety
-
-```typescript
-// ✅ GOOD: Proper types
-interface Market {
-  id: string
-  name: string
-  status: 'active' | 'resolved' | 'closed'
-  created_at: Date
-}
-
-function getMarket(id: string): Promise<Market> {
-  // Implementation
-}
-
-// ❌ BAD: Using 'any'
-function getMarket(id: any): Promise<any> {
-  // Implementation
+// ❌ BAD: Silent exception swallowing
+try {
+    riskyOperation()
+} catch (e: Exception) {
+    // Empty catch block - BAD!
 }
 ```
 
-## React Best Practices
+### Extension Functions
 
-### Component Structure
+```kotlin
+// ✅ GOOD: Extension functions for common operations
+fun String.toSlug(): String =
+    this.lowercase()
+        .replace(Regex("[^a-z0-9\\s-]"), "")
+        .replace(Regex("\\s+"), "-")
+        .trim('-')
 
-```typescript
-// ✅ GOOD: Functional component with types
-interface ButtonProps {
-  children: React.ReactNode
-  onClick: () => void
-  disabled?: boolean
-  variant?: 'primary' | 'secondary'
-}
-
-export function Button({
-  children,
-  onClick,
-  disabled = false,
-  variant = 'primary'
-}: ButtonProps) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`btn btn-${variant}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ❌ BAD: No types, unclear structure
-export function Button(props) {
-  return <button onClick={props.onClick}>{props.children}</button>
-}
-```
-
-### Custom Hooks
-
-```typescript
-// ✅ GOOD: Reusable custom hook
-export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(handler)
-  }, [value, delay])
-
-  return debouncedValue
-}
+fun <T> List<T>.secondOrNull(): T? =
+    if (size >= 2) this[1] else null
 
 // Usage
-const debouncedQuery = useDebounce(searchQuery, 500)
+val slug = "Hello World!".toSlug()  // "hello-world"
+val second = listOf(1, 2, 3).secondOrNull()  // 2
 ```
 
-### State Management
+### Data Classes
 
-```typescript
-// ✅ GOOD: Proper state updates
-const [count, setCount] = useState(0)
+```kotlin
+// ✅ GOOD: Immutable data class
+data class CreateUserRequest(
+    @field:NotBlank(message = "Email is required")
+    @field:Email(message = "Invalid email format")
+    val email: String,
 
-// Functional update for state based on previous state
-setCount(prev => prev + 1)
+    @field:NotBlank(message = "Name is required")
+    @field:Size(min = 1, max = 100)
+    val name: String,
 
-// ❌ BAD: Direct state reference
-setCount(count + 1)  // Can be stale in async scenarios
+    val role: UserRole = UserRole.USER
+)
+
+// ✅ GOOD: Entity with JPA
+@Entity
+@Table(name = "users")
+data class User(
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    val id: Long = 0,
+
+    @Column(nullable = false, unique = true)
+    val email: String,
+
+    @Column(nullable = false)
+    val name: String,
+
+    @Enumerated(EnumType.STRING)
+    val status: UserStatus = UserStatus.ACTIVE,
+
+    @Column(nullable = false, updatable = false)
+    val createdAt: LocalDateTime = LocalDateTime.now()
+)
 ```
 
-### Conditional Rendering
+### Sealed Classes for State
 
-```typescript
-// ✅ GOOD: Clear conditional rendering
-{isLoading && <Spinner />}
-{error && <ErrorMessage error={error} />}
-{data && <DataDisplay data={data} />}
+```kotlin
+// ✅ GOOD: Sealed class for finite states
+sealed class MarketStatus {
+    object Draft : MarketStatus()
+    object Active : MarketStatus()
+    data class Resolved(val outcome: String) : MarketStatus()
+    object Closed : MarketStatus()
+}
 
-// ❌ BAD: Ternary hell
-{isLoading ? <Spinner /> : error ? <ErrorMessage error={error} /> : data ? <DataDisplay data={data} /> : null}
+// Usage with when (exhaustive)
+fun handleStatus(status: MarketStatus): String = when (status) {
+    is MarketStatus.Draft -> "Market is in draft"
+    is MarketStatus.Active -> "Market is active"
+    is MarketStatus.Resolved -> "Market resolved: ${status.outcome}"
+    is MarketStatus.Closed -> "Market is closed"
+}
+```
+
+## Spring Boot Best Practices
+
+### Controller Layer
+
+```kotlin
+@RestController
+@RequestMapping("/api/markets")
+class MarketController(
+    private val marketService: MarketService
+) {
+    @GetMapping
+    fun getMarkets(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "10") size: Int
+    ): ResponseEntity<ApiResponse<Page<MarketDto>>> {
+        val markets = marketService.findAll(PageRequest.of(page, size))
+        return ResponseEntity.ok(ApiResponse.success(markets))
+    }
+
+    @GetMapping("/{slug}")
+    fun getMarket(@PathVariable slug: String): ResponseEntity<ApiResponse<MarketDto>> {
+        val market = marketService.findBySlug(slug)
+            ?: return ResponseEntity.notFound().build()
+        return ResponseEntity.ok(ApiResponse.success(market))
+    }
+
+    @PostMapping
+    fun createMarket(
+        @Valid @RequestBody request: CreateMarketRequest
+    ): ResponseEntity<ApiResponse<MarketDto>> {
+        val market = marketService.create(request)
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(ApiResponse.success(market))
+    }
+}
+```
+
+### Service Layer
+
+```kotlin
+@Service
+class MarketService(
+    private val marketRepository: MarketRepository,
+    private val eventPublisher: ApplicationEventPublisher
+) {
+    private val logger = LoggerFactory.getLogger(javaClass)
+
+    @Transactional(readOnly = true)
+    fun findAll(pageable: Pageable): Page<MarketDto> {
+        return marketRepository.findAll(pageable).map { it.toDto() }
+    }
+
+    @Transactional(readOnly = true)
+    fun findBySlug(slug: String): MarketDto? {
+        return marketRepository.findBySlug(slug)?.toDto()
+    }
+
+    @Transactional
+    fun create(request: CreateMarketRequest): MarketDto {
+        logger.info("Creating market: ${request.name}")
+
+        val market = Market(
+            name = request.name,
+            slug = request.name.toSlug(),
+            description = request.description,
+            status = MarketStatus.DRAFT
+        )
+
+        val saved = marketRepository.save(market)
+        eventPublisher.publishEvent(MarketCreatedEvent(saved))
+
+        return saved.toDto()
+    }
+}
+```
+
+### Repository Layer
+
+```kotlin
+interface MarketRepository : JpaRepository<Market, Long> {
+    fun findBySlug(slug: String): Market?
+    fun findByStatus(status: MarketStatus): List<Market>
+
+    @Query("SELECT m FROM Market m WHERE m.name LIKE %:query% OR m.description LIKE %:query%")
+    fun searchByQuery(@Param("query") query: String, pageable: Pageable): Page<Market>
+
+    @Query("SELECT m FROM Market m WHERE m.status = :status ORDER BY m.createdAt DESC")
+    fun findRecentByStatus(
+        @Param("status") status: MarketStatus,
+        pageable: Pageable
+    ): Page<Market>
+}
 ```
 
 ## API Design Standards
@@ -230,120 +318,161 @@ setCount(count + 1)  // Can be stale in async scenarios
 ### REST API Conventions
 
 ```
-GET    /api/markets              # List all markets
-GET    /api/markets/:id          # Get specific market
+GET    /api/markets              # List all markets (paginated)
+GET    /api/markets/:slug        # Get specific market
 POST   /api/markets              # Create new market
-PUT    /api/markets/:id          # Update market (full)
-PATCH  /api/markets/:id          # Update market (partial)
-DELETE /api/markets/:id          # Delete market
+PUT    /api/markets/:slug        # Update market (full)
+PATCH  /api/markets/:slug        # Update market (partial)
+DELETE /api/markets/:slug        # Delete market
 
 # Query parameters for filtering
-GET /api/markets?status=active&limit=10&offset=0
+GET /api/markets?status=ACTIVE&page=0&size=10&sort=createdAt,desc
 ```
 
 ### Response Format
 
-```typescript
+```kotlin
 // ✅ GOOD: Consistent response structure
-interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-  meta?: {
-    total: number
-    page: number
-    limit: number
-  }
+data class ApiResponse<T>(
+    val success: Boolean,
+    val data: T? = null,
+    val error: ErrorDetails? = null,
+    val meta: Meta? = null
+) {
+    companion object {
+        fun <T> success(data: T, meta: Meta? = null) = ApiResponse(
+            success = true,
+            data = data,
+            meta = meta
+        )
+
+        fun error(message: String, code: String? = null) = ApiResponse<Nothing>(
+            success = false,
+            error = ErrorDetails(message, code)
+        )
+    }
 }
 
-// Success response
-return NextResponse.json({
-  success: true,
-  data: markets,
-  meta: { total: 100, page: 1, limit: 10 }
-})
+data class ErrorDetails(
+    val message: String,
+    val code: String? = null,
+    val details: Map<String, Any>? = null
+)
 
-// Error response
-return NextResponse.json({
-  success: false,
-  error: 'Invalid request'
-}, { status: 400 })
+data class Meta(
+    val total: Long,
+    val page: Int,
+    val size: Int,
+    val totalPages: Int
+)
 ```
 
 ### Input Validation
 
-```typescript
-import { z } from 'zod'
+```kotlin
+// ✅ GOOD: Jakarta Bean Validation
+data class CreateMarketRequest(
+    @field:NotBlank(message = "Name is required")
+    @field:Size(min = 1, max = 200, message = "Name must be 1-200 characters")
+    val name: String,
 
-// ✅ GOOD: Schema validation
-const CreateMarketSchema = z.object({
-  name: z.string().min(1).max(200),
-  description: z.string().min(1).max(2000),
-  endDate: z.string().datetime(),
-  categories: z.array(z.string()).min(1)
-})
+    @field:Size(max = 2000, message = "Description must be at most 2000 characters")
+    val description: String? = null,
 
-export async function POST(request: Request) {
-  const body = await request.json()
+    @field:NotNull(message = "End date is required")
+    @field:Future(message = "End date must be in the future")
+    val endDate: LocalDateTime,
 
-  try {
-    const validated = CreateMarketSchema.parse(body)
-    // Proceed with validated data
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({
-        success: false,
-        error: 'Validation failed',
-        details: error.errors
-      }, { status: 400 })
+    @field:NotEmpty(message = "At least one category is required")
+    val categories: List<String>
+)
+
+// Global exception handler
+@RestControllerAdvice
+class GlobalExceptionHandler {
+
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    fun handleValidationException(ex: MethodArgumentNotValidException): ResponseEntity<ApiResponse<Nothing>> {
+        val errors = ex.bindingResult.fieldErrors.associate {
+            it.field to (it.defaultMessage ?: "Invalid value")
+        }
+        return ResponseEntity.badRequest().body(
+            ApiResponse.error("Validation failed").copy(
+                error = ErrorDetails(
+                    message = "Validation failed",
+                    code = "VALIDATION_ERROR",
+                    details = errors
+                )
+            )
+        )
     }
-  }
 }
 ```
 
 ## File Organization
 
-### Project Structure
+### Project Structure (Package by Feature)
 
 ```
-src/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   ├── markets/           # Market pages
-│   └── (auth)/           # Auth pages (route groups)
-├── components/            # React components
-│   ├── ui/               # Generic UI components
-│   ├── forms/            # Form components
-│   └── layouts/          # Layout components
-├── hooks/                # Custom React hooks
-├── lib/                  # Utilities and configs
-│   ├── api/             # API clients
-│   ├── utils/           # Helper functions
-│   └── constants/       # Constants
-├── types/                # TypeScript types
-└── styles/              # Global styles
+src/main/kotlin/com/example/
+├── Application.kt                  # @SpringBootApplication
+├── config/                         # Configuration classes
+│   ├── SecurityConfig.kt
+│   ├── CacheConfig.kt
+│   └── WebConfig.kt
+├── market/                         # Market feature
+│   ├── MarketController.kt
+│   ├── MarketService.kt
+│   ├── MarketRepository.kt
+│   ├── Market.kt                   # Entity
+│   ├── MarketDto.kt               # DTOs
+│   └── MarketMapper.kt            # Entity <-> DTO mapping
+├── user/                           # User feature
+│   ├── UserController.kt
+│   ├── UserService.kt
+│   └── ...
+└── common/                         # Shared code
+    ├── exception/
+    │   ├── GlobalExceptionHandler.kt
+    │   └── Exceptions.kt
+    ├── security/
+    │   └── JwtTokenProvider.kt
+    └── util/
+        └── Extensions.kt
 ```
 
 ### File Naming
 
 ```
-components/Button.tsx          # PascalCase for components
-hooks/useAuth.ts              # camelCase with 'use' prefix
-lib/formatDate.ts             # camelCase for utilities
-types/market.types.ts         # camelCase with .types suffix
+src/main/kotlin/
+├── MarketController.kt          # PascalCase for classes
+├── MarketService.kt
+├── MarketRepository.kt
+├── Market.kt                    # Entity
+├── MarketDto.kt                 # DTO suffix
+├── MarketMapper.kt              # Mapper suffix
+└── Extensions.kt                # Utility extensions
+
+src/main/resources/
+├── application.yml              # Main config
+├── application-dev.yml          # Dev profile
+├── application-prod.yml         # Prod profile
+└── db/migration/                # Flyway migrations
+    ├── V1__create_users.sql
+    └── V2__create_markets.sql
 ```
 
 ## Comments & Documentation
 
 ### When to Comment
 
-```typescript
+```kotlin
 // ✅ GOOD: Explain WHY, not WHAT
 // Use exponential backoff to avoid overwhelming the API during outages
-const delay = Math.min(1000 * Math.pow(2, retryCount), 30000)
+val delay = minOf(1000L * 2.0.pow(retryCount).toLong(), 30000L)
 
-// Deliberately using mutation here for performance with large arrays
-items.push(newItem)
+// Deliberately using mutable list here for performance with 10k+ items
+val items = mutableListOf<Item>()
 
 // ❌ BAD: Stating the obvious
 // Increment counter by 1
@@ -353,110 +482,110 @@ count++
 name = user.name
 ```
 
-### JSDoc for Public APIs
+### KDoc for Public APIs
 
-```typescript
+```kotlin
 /**
  * Searches markets using semantic similarity.
  *
- * @param query - Natural language search query
- * @param limit - Maximum number of results (default: 10)
- * @returns Array of markets sorted by similarity score
- * @throws {Error} If OpenAI API fails or Redis unavailable
+ * @param query Natural language search query
+ * @param limit Maximum number of results (default: 10)
+ * @return List of markets sorted by similarity score
+ * @throws SearchException if OpenAI API fails or Redis unavailable
  *
- * @example
- * ```typescript
- * const results = await searchMarkets('election', 5)
- * console.log(results[0].name) // "Trump vs Biden"
+ * @sample
+ * ```kotlin
+ * val results = searchMarkets("election", 5)
+ * println(results[0].name) // "Trump vs Biden"
  * ```
  */
-export async function searchMarkets(
-  query: string,
-  limit: number = 10
-): Promise<Market[]> {
-  // Implementation
-}
+fun searchMarkets(query: String, limit: Int = 10): List<Market>
 ```
 
 ## Performance Best Practices
 
-### Memoization
-
-```typescript
-import { useMemo, useCallback } from 'react'
-
-// ✅ GOOD: Memoize expensive computations
-const sortedMarkets = useMemo(() => {
-  return markets.sort((a, b) => b.volume - a.volume)
-}, [markets])
-
-// ✅ GOOD: Memoize callbacks
-const handleSearch = useCallback((query: string) => {
-  setSearchQuery(query)
-}, [])
-```
-
-### Lazy Loading
-
-```typescript
-import { lazy, Suspense } from 'react'
-
-// ✅ GOOD: Lazy load heavy components
-const HeavyChart = lazy(() => import('./HeavyChart'))
-
-export function Dashboard() {
-  return (
-    <Suspense fallback={<Spinner />}>
-      <HeavyChart />
-    </Suspense>
-  )
-}
-```
-
 ### Database Queries
 
-```typescript
-// ✅ GOOD: Select only needed columns
-const { data } = await supabase
-  .from('markets')
-  .select('id, name, status')
-  .limit(10)
+```kotlin
+// ✅ GOOD: Select only needed columns with projections
+interface MarketSummary {
+    val id: Long
+    val name: String
+    val status: MarketStatus
+}
+
+@Query("SELECT m.id as id, m.name as name, m.status as status FROM Market m")
+fun findAllSummaries(): List<MarketSummary>
+
+// ✅ GOOD: Use pagination
+fun findAll(pageable: Pageable): Page<Market>
+
+// ✅ GOOD: Fetch relations in single query (avoid N+1)
+@EntityGraph(attributePaths = ["categories", "creator"])
+fun findBySlug(slug: String): Market?
 
 // ❌ BAD: Select everything
-const { data } = await supabase
-  .from('markets')
-  .select('*')
+fun findAll(): List<Market>  // Can return millions of rows
+```
+
+### Caching
+
+```kotlin
+@Service
+class MarketService(
+    private val marketRepository: MarketRepository
+) {
+    @Cacheable("markets", key = "#slug")
+    fun findBySlug(slug: String): Market? {
+        return marketRepository.findBySlug(slug)
+    }
+
+    @CacheEvict("markets", key = "#market.slug")
+    @Transactional
+    fun update(market: Market): Market {
+        return marketRepository.save(market)
+    }
+}
 ```
 
 ## Testing Standards
 
-### Test Structure (AAA Pattern)
+### Test Structure (Given-When-Then)
 
-```typescript
-test('calculates similarity correctly', () => {
-  // Arrange
-  const vector1 = [1, 0, 0]
-  const vector2 = [0, 1, 0]
+```kotlin
+@Test
+fun `should calculate similarity correctly`() {
+    // Given
+    val vector1 = listOf(1.0, 0.0, 0.0)
+    val vector2 = listOf(0.0, 1.0, 0.0)
 
-  // Act
-  const similarity = calculateCosineSimilarity(vector1, vector2)
+    // When
+    val similarity = calculateCosineSimilarity(vector1, vector2)
 
-  // Assert
-  expect(similarity).toBe(0)
-})
+    // Then
+    assertThat(similarity).isEqualTo(0.0)
+}
 ```
 
 ### Test Naming
 
-```typescript
-// ✅ GOOD: Descriptive test names
-test('returns empty array when no markets match query', () => { })
-test('throws error when OpenAI API key is missing', () => { })
-test('falls back to substring search when Redis unavailable', () => { })
+```kotlin
+// ✅ GOOD: Descriptive test names (backtick syntax)
+@Test
+fun `should return empty list when no markets match query`() { }
+
+@Test
+fun `should throw exception when API key is missing`() { }
+
+@Test
+fun `should fall back to substring search when Redis unavailable`() { }
 
 // ❌ BAD: Vague test names
-test('works', () => { })
-test('test search', () => { })
+@Test
+fun `works`() { }
+
+@Test
+fun `test search`() { }
 ```
 
 ## Code Smell Detection
@@ -464,57 +593,56 @@ test('test search', () => { })
 Watch for these anti-patterns:
 
 ### 1. Long Functions
-```typescript
+```kotlin
 // ❌ BAD: Function > 50 lines
-function processMarketData() {
-  // 100 lines of code
+fun processMarketData() {
+    // 100 lines of code
 }
 
 // ✅ GOOD: Split into smaller functions
-function processMarketData() {
-  const validated = validateData()
-  const transformed = transformData(validated)
-  return saveData(transformed)
+fun processMarketData() {
+    val validated = validateData()
+    val transformed = transformData(validated)
+    return saveData(transformed)
 }
 ```
 
 ### 2. Deep Nesting
-```typescript
+```kotlin
 // ❌ BAD: 5+ levels of nesting
-if (user) {
-  if (user.isAdmin) {
-    if (market) {
-      if (market.isActive) {
-        if (hasPermission) {
-          // Do something
+if (user != null) {
+    if (user.isAdmin) {
+        if (market != null) {
+            if (market.isActive) {
+                // Do something
+            }
         }
-      }
     }
-  }
 }
 
 // ✅ GOOD: Early returns
-if (!user) return
+user ?: return
 if (!user.isAdmin) return
-if (!market) return
+market ?: return
 if (!market.isActive) return
-if (!hasPermission) return
 
 // Do something
 ```
 
 ### 3. Magic Numbers
-```typescript
+```kotlin
 // ❌ BAD: Unexplained numbers
 if (retryCount > 3) { }
-setTimeout(callback, 500)
+delay(500)
 
 // ✅ GOOD: Named constants
-const MAX_RETRIES = 3
-const DEBOUNCE_DELAY_MS = 500
+companion object {
+    private const val MAX_RETRIES = 3
+    private const val DEBOUNCE_DELAY_MS = 500L
+}
 
 if (retryCount > MAX_RETRIES) { }
-setTimeout(callback, DEBOUNCE_DELAY_MS)
+delay(DEBOUNCE_DELAY_MS)
 ```
 
 **Remember**: Code quality is not negotiable. Clear, maintainable code enables rapid development and confident refactoring.

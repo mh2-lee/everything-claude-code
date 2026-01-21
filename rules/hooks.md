@@ -9,18 +9,19 @@
 ## Current Hooks (in ~/.claude/settings.json)
 
 ### PreToolUse
-- **tmux reminder**: Suggests tmux for long-running commands (npm, pnpm, yarn, cargo, etc.)
-- **git push review**: Opens Zed for review before push
+- **tmux reminder**: Suggests tmux for long-running commands (gradle, docker, etc.)
+- **git push review**: Opens IDE for review before push
 - **doc blocker**: Blocks creation of unnecessary .md/.txt files
 
 ### PostToolUse
 - **PR creation**: Logs PR URL and GitHub Actions status
-- **Prettier**: Auto-formats JS/TS files after edit
-- **TypeScript check**: Runs tsc after editing .ts/.tsx files
-- **console.log warning**: Warns about console.log in edited files
+- **ktlint**: Auto-formats Kotlin files after edit
+- **Detekt check**: Runs detekt after editing .kt files
+- **println warning**: Warns about println in edited Kotlin files
 
 ### Stop
-- **console.log audit**: Checks all modified files for console.log before session ends
+- **println audit**: Checks all modified files for println before session ends
+- **build verification**: Runs `./gradlew build` before session ends
 
 ## Auto-Accept Permissions
 
