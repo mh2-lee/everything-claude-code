@@ -1,10 +1,16 @@
 # Example Project CLAUDE.md
 
-This is an example project-level CLAUDE.md file. Place this in your project root.
+This is an example project-level CLAUDE.md file for Spring Boot + Kotlin projects. Place this in your project root.
 
 ## Project Overview
 
 [Brief description of your project - what it does, tech stack]
+
+- **Framework**: Spring Boot 3.x
+- **Language**: Kotlin
+- **Build Tool**: Gradle (Kotlin DSL)
+- **Database**: PostgreSQL
+- **Cache**: Redis
 
 ## Critical Rules
 
@@ -13,76 +19,126 @@ This is an example project-level CLAUDE.md file. Place this in your project root
 - Many small files over few large files
 - High cohesion, low coupling
 - 200-400 lines typical, 800 max per file
-- Organize by feature/domain, not by type
+- Organize by feature/domain, not by layer
+
+```
+src/main/kotlin/com/example/
+├── user/
+│   ├── UserController.kt
+│   ├── UserService.kt
+│   ├── UserRepository.kt
+│   └── User.kt
+├── order/
+│   └── ...
+└── common/
+    ├── config/
+    └── exception/
+```
 
 ### 2. Code Style
 
-- No emojis in code, comments, or documentation
-- Immutability always - never mutate objects or arrays
-- No console.log in production code
-- Proper error handling with try/catch
-- Input validation with Zod or similar
+- Use `val` over `var` (immutability)
+- Use data class `copy()` for updates
+- No println - use SLF4J logger
+- Proper error handling with exception classes
+- Input validation with Jakarta Validation
 
 ### 3. Testing
 
 - TDD: Write tests first
 - 80% minimum coverage
-- Unit tests for utilities
-- Integration tests for APIs
-- E2E tests for critical flows
+- Unit tests with JUnit5 + Mockito
+- Integration tests with @SpringBootTest
+- Use Testcontainers for database tests
 
 ### 4. Security
 
 - No hardcoded secrets
-- Environment variables for sensitive data
+- Environment variables for sensitive data (application.yml with `${VAR}`)
 - Validate all user inputs
-- Parameterized queries only
-- CSRF protection enabled
+- Use Spring Security for auth
+- Parameterized queries (JPA handles this)
 
 ## File Structure
 
 ```
 src/
-|-- app/              # Next.js app router
-|-- components/       # Reusable UI components
-|-- hooks/            # Custom React hooks
-|-- lib/              # Utility libraries
-|-- types/            # TypeScript definitions
+├── main/
+│   ├── kotlin/com/example/
+│   │   ├── Application.kt
+│   │   ├── user/
+│   │   ├── order/
+│   │   └── common/
+│   └── resources/
+│       ├── application.yml
+│       ├── application-local.yml
+│       └── db/migration/        # Flyway migrations
+└── test/
+    └── kotlin/com/example/
 ```
 
 ## Key Patterns
 
 ### API Response Format
 
-```typescript
-interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-}
+```kotlin
+data class ApiResponse<T>(
+    val success: Boolean,
+    val data: T? = null,
+    val error: ErrorDetail? = null
+)
 ```
 
 ### Error Handling
 
-```typescript
-try {
-  const result = await operation()
-  return { success: true, data: result }
-} catch (error) {
-  console.error('Operation failed:', error)
-  return { success: false, error: 'User-friendly message' }
+```kotlin
+@RestControllerAdvice
+class GlobalExceptionHandler {
+    @ExceptionHandler(EntityNotFoundException::class)
+    fun handleNotFound(e: EntityNotFoundException): ResponseEntity<ApiResponse<Nothing>> {
+        return ResponseEntity
+            .status(HttpStatus.NOT_FOUND)
+            .body(ApiResponse(success = false, error = ErrorDetail("NOT_FOUND", e.message)))
+    }
+}
+```
+
+### Service Pattern
+
+```kotlin
+@Service
+@Transactional(readOnly = true)
+class UserService(private val userRepository: UserRepository) {
+
+    fun findById(id: Long): User =
+        userRepository.findByIdOrNull(id)
+            ?: throw EntityNotFoundException("User not found: $id")
+
+    @Transactional
+    fun create(request: CreateUserRequest): User {
+        val user = User(name = request.name, email = request.email)
+        return userRepository.save(user)
+    }
 }
 ```
 
 ## Environment Variables
 
-```bash
-# Required
-DATABASE_URL=
-API_KEY=
+```yaml
+# application.yml
+spring:
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/myapp}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
 
-# Optional
-DEBUG=false
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
 ```
 
 ## Available Commands
@@ -90,7 +146,26 @@ DEBUG=false
 - `/tdd` - Test-driven development workflow
 - `/plan` - Create implementation plan
 - `/code-review` - Review code quality
-- `/build-fix` - Fix build errors
+- `/build-fix` - Fix Gradle build errors
+
+## Build Commands
+
+```bash
+# Build
+./gradlew build
+
+# Run tests
+./gradlew test
+
+# Run with coverage
+./gradlew test jacocoTestReport
+
+# Run application
+./gradlew bootRun
+
+# Build Docker image
+./gradlew bootBuildImage
+```
 
 ## Git Workflow
 

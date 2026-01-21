@@ -1,631 +1,461 @@
 ---
 name: frontend-patterns
-description: Frontend development patterns for React, Next.js, state management, performance optimization, and UI best practices.
+description: Server-side rendering patterns with Thymeleaf, HTMX integration, and API response patterns for Spring Boot applications.
 ---
 
-# Frontend Development Patterns
+# Frontend & API Response Patterns
 
-Modern frontend patterns for React, Next.js, and performant user interfaces.
+Patterns for server-side rendering with Thymeleaf and API response design in Spring Boot applications.
 
-## Component Patterns
+## Thymeleaf Template Patterns
 
-### Composition Over Inheritance
+### Base Layout Template
 
-```typescript
-// ✅ GOOD: Component composition
-interface CardProps {
-  children: React.ReactNode
-  variant?: 'default' | 'outlined'
-}
+```html
+<!-- templates/layout/base.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:fragment="layout(title, content)">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:replace="${title}">Default Title</title>
+    <link rel="stylesheet" th:href="@{/css/main.css}">
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body>
+    <nav th:replace="~{layout/nav :: nav}"></nav>
 
-export function Card({ children, variant = 'default' }: CardProps) {
-  return <div className={`card card-${variant}`}>{children}</div>
-}
+    <main class="container">
+        <div th:replace="${content}">Content</div>
+    </main>
 
-export function CardHeader({ children }: { children: React.ReactNode }) {
-  return <div className="card-header">{children}</div>
-}
+    <footer th:replace="~{layout/footer :: footer}"></footer>
 
-export function CardBody({ children }: { children: React.ReactNode }) {
-  return <div className="card-body">{children}</div>
-}
-
-// Usage
-<Card>
-  <CardHeader>Title</CardHeader>
-  <CardBody>Content</CardBody>
-</Card>
+    <script th:src="@{/js/main.js}"></script>
+</body>
+</html>
 ```
 
-### Compound Components
+### Page Template with Layout
 
-```typescript
-interface TabsContextValue {
-  activeTab: string
-  setActiveTab: (tab: string) => void
-}
+```html
+<!-- templates/market/list.html -->
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{layout/base :: layout(~{::title}, ~{::content})}">
+<head>
+    <title>Markets</title>
+</head>
+<body>
+    <div th:fragment="content">
+        <h1>Markets</h1>
 
-const TabsContext = createContext<TabsContextValue | undefined>(undefined)
+        <!-- Search form -->
+        <form th:action="@{/markets}" method="get" class="search-form">
+            <input type="text" name="query" th:value="${query}" placeholder="Search markets...">
+            <button type="submit">Search</button>
+        </form>
 
-export function Tabs({ children, defaultTab }: {
-  children: React.ReactNode
-  defaultTab: string
-}) {
-  const [activeTab, setActiveTab] = useState(defaultTab)
+        <!-- Market list -->
+        <div class="market-list" id="market-list">
+            <div th:each="market : ${markets}" class="market-card">
+                <h3 th:text="${market.name}">Market Name</h3>
+                <p th:text="${market.description}">Description</p>
+                <span th:text="${market.status}"
+                      th:class="'status status-' + ${market.status.name().toLowerCase()}">
+                    Status
+                </span>
+                <a th:href="@{/markets/{id}(id=${market.id})}">View Details</a>
+            </div>
 
-  return (
-    <TabsContext.Provider value={{ activeTab, setActiveTab }}>
-      {children}
-    </TabsContext.Provider>
-  )
-}
+            <div th:if="${#lists.isEmpty(markets)}" class="empty-state">
+                <p>No markets found.</p>
+            </div>
+        </div>
 
-export function TabList({ children }: { children: React.ReactNode }) {
-  return <div className="tab-list">{children}</div>
-}
-
-export function Tab({ id, children }: { id: string, children: React.ReactNode }) {
-  const context = useContext(TabsContext)
-  if (!context) throw new Error('Tab must be used within Tabs')
-
-  return (
-    <button
-      className={context.activeTab === id ? 'active' : ''}
-      onClick={() => context.setActiveTab(id)}
-    >
-      {children}
-    </button>
-  )
-}
-
-// Usage
-<Tabs defaultTab="overview">
-  <TabList>
-    <Tab id="overview">Overview</Tab>
-    <Tab id="details">Details</Tab>
-  </TabList>
-</Tabs>
+        <!-- Pagination -->
+        <nav th:if="${totalPages > 1}" class="pagination">
+            <a th:if="${currentPage > 0}"
+               th:href="@{/markets(page=${currentPage - 1}, query=${query})}">
+                Previous
+            </a>
+            <span th:each="page : ${#numbers.sequence(0, totalPages - 1)}"
+                  th:class="${page == currentPage} ? 'active'">
+                <a th:href="@{/markets(page=${page}, query=${query})}"
+                   th:text="${page + 1}">1</a>
+            </span>
+            <a th:if="${currentPage < totalPages - 1}"
+               th:href="@{/markets(page=${currentPage + 1}, query=${query})}">
+                Next
+            </a>
+        </nav>
+    </div>
+</body>
+</html>
 ```
 
-### Render Props Pattern
+### Form with Validation
 
-```typescript
-interface DataLoaderProps<T> {
-  url: string
-  children: (data: T | null, loading: boolean, error: Error | null) => React.ReactNode
-}
+```html
+<!-- templates/market/form.html -->
+<form th:action="@{/markets}" th:object="${marketForm}" method="post">
+    <div class="form-group" th:classappend="${#fields.hasErrors('name')} ? 'has-error'">
+        <label for="name">Name</label>
+        <input type="text" id="name" th:field="*{name}" required>
+        <span th:if="${#fields.hasErrors('name')}"
+              th:errors="*{name}"
+              class="error-message">
+        </span>
+    </div>
 
-export function DataLoader<T>({ url, children }: DataLoaderProps<T>) {
-  const [data, setData] = useState<T | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+    <div class="form-group" th:classappend="${#fields.hasErrors('description')} ? 'has-error'">
+        <label for="description">Description</label>
+        <textarea id="description" th:field="*{description}" rows="4"></textarea>
+        <span th:if="${#fields.hasErrors('description')}"
+              th:errors="*{description}"
+              class="error-message">
+        </span>
+    </div>
 
-  useEffect(() => {
-    fetch(url)
-      .then(res => res.json())
-      .then(setData)
-      .catch(setError)
-      .finally(() => setLoading(false))
-  }, [url])
+    <div class="form-group">
+        <label for="status">Status</label>
+        <select id="status" th:field="*{status}">
+            <option th:each="status : ${T(com.example.MarketStatus).values()}"
+                    th:value="${status}"
+                    th:text="${status.displayName}">
+            </option>
+        </select>
+    </div>
 
-  return <>{children(data, loading, error)}</>
-}
-
-// Usage
-<DataLoader<Market[]> url="/api/markets">
-  {(markets, loading, error) => {
-    if (loading) return <Spinner />
-    if (error) return <Error error={error} />
-    return <MarketList markets={markets!} />
-  }}
-</DataLoader>
+    <!-- CSRF token (auto-included by Spring Security) -->
+    <button type="submit">Create Market</button>
+</form>
 ```
 
-## Custom Hooks Patterns
+## HTMX Integration Patterns
 
-### State Management Hook
+### Partial Updates
 
-```typescript
-export function useToggle(initialValue = false): [boolean, () => void] {
-  const [value, setValue] = useState(initialValue)
+```html
+<!-- List with HTMX partial loading -->
+<div id="market-list">
+    <div th:each="market : ${markets}"
+         th:fragment="market-item"
+         class="market-card"
+         th:id="'market-' + ${market.id}">
+        <h3 th:text="${market.name}">Name</h3>
+        <button hx-delete th:attr="hx-delete=@{/markets/{id}(id=${market.id})}"
+                hx-target th:attr="hx-target='#market-' + ${market.id}"
+                hx-swap="outerHTML"
+                hx-confirm="Are you sure?">
+            Delete
+        </button>
+    </div>
+</div>
 
-  const toggle = useCallback(() => {
-    setValue(v => !v)
-  }, [])
-
-  return [value, toggle]
-}
-
-// Usage
-const [isOpen, toggleOpen] = useToggle()
+<!-- Infinite scroll -->
+<div hx-get="/markets?page=1"
+     hx-trigger="revealed"
+     hx-swap="afterend">
+    Loading more...
+</div>
 ```
 
-### Async Data Fetching Hook
+### Live Search
 
-```typescript
-interface UseQueryOptions<T> {
-  onSuccess?: (data: T) => void
-  onError?: (error: Error) => void
-  enabled?: boolean
-}
+```html
+<input type="search"
+       name="query"
+       hx-get="/markets/search"
+       hx-trigger="keyup changed delay:300ms"
+       hx-target="#search-results"
+       hx-indicator="#search-spinner"
+       placeholder="Search markets...">
 
-export function useQuery<T>(
-  key: string,
-  fetcher: () => Promise<T>,
-  options?: UseQueryOptions<T>
+<span id="search-spinner" class="htmx-indicator">Searching...</span>
+
+<div id="search-results">
+    <!-- Results loaded here -->
+</div>
+```
+
+### Form Submission with HTMX
+
+```html
+<form hx-post="/markets"
+      hx-target="#market-list"
+      hx-swap="beforeend"
+      hx-on::after-request="this.reset()">
+    <input type="text" name="name" required>
+    <textarea name="description"></textarea>
+    <button type="submit">Add Market</button>
+</form>
+```
+
+## Controller Patterns for Views
+
+### View Controller
+
+```kotlin
+@Controller
+@RequestMapping("/markets")
+class MarketViewController(
+    private val marketService: MarketService
 ) {
-  const [data, setData] = useState<T | null>(null)
-  const [error, setError] = useState<Error | null>(null)
-  const [loading, setLoading] = useState(false)
+    @GetMapping
+    fun list(
+        @RequestParam(defaultValue = "") query: String,
+        @RequestParam(defaultValue = "0") page: Int,
+        model: Model
+    ): String {
+        val pageable = PageRequest.of(page, 20)
+        val markets = if (query.isBlank()) {
+            marketService.findAll(pageable)
+        } else {
+            marketService.search(query, pageable)
+        }
 
-  const refetch = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+        model.addAttribute("markets", markets.content)
+        model.addAttribute("currentPage", page)
+        model.addAttribute("totalPages", markets.totalPages)
+        model.addAttribute("query", query)
 
-    try {
-      const result = await fetcher()
-      setData(result)
-      options?.onSuccess?.(result)
-    } catch (err) {
-      const error = err as Error
-      setError(error)
-      options?.onError?.(error)
-    } finally {
-      setLoading(false)
+        return "market/list"
     }
-  }, [fetcher, options])
 
-  useEffect(() => {
-    if (options?.enabled !== false) {
-      refetch()
+    @GetMapping("/{id}")
+    fun detail(@PathVariable id: Long, model: Model): String {
+        val market = marketService.findById(id)
+        model.addAttribute("market", market)
+        return "market/detail"
     }
-  }, [key, refetch, options?.enabled])
 
-  return { data, error, loading, refetch }
+    @GetMapping("/new")
+    fun createForm(model: Model): String {
+        model.addAttribute("marketForm", MarketForm())
+        return "market/form"
+    }
+
+    @PostMapping
+    fun create(
+        @Valid @ModelAttribute("marketForm") form: MarketForm,
+        bindingResult: BindingResult,
+        redirectAttributes: RedirectAttributes
+    ): String {
+        if (bindingResult.hasErrors()) {
+            return "market/form"
+        }
+
+        val market = marketService.create(form.toRequest())
+        redirectAttributes.addFlashAttribute("message", "Market created successfully")
+        return "redirect:/markets/${market.id}"
+    }
+
+    // HTMX partial endpoint
+    @GetMapping("/search")
+    fun search(
+        @RequestParam query: String,
+        model: Model
+    ): String {
+        val markets = marketService.search(query, PageRequest.of(0, 10))
+        model.addAttribute("markets", markets.content)
+        return "market/list :: market-item"  // Return fragment only
+    }
 }
+```
 
-// Usage
-const { data: markets, loading, error, refetch } = useQuery(
-  'markets',
-  () => fetch('/api/markets').then(r => r.json()),
-  {
-    onSuccess: data => console.log('Fetched', data.length, 'markets'),
-    onError: err => console.error('Failed:', err)
-  }
+## API Response Patterns
+
+### Standard Response Wrapper
+
+```kotlin
+data class ApiResponse<T>(
+    val success: Boolean,
+    val data: T? = null,
+    val error: ErrorDetail? = null,
+    val meta: Meta? = null
+)
+
+data class ErrorDetail(
+    val code: String,
+    val message: String,
+    val details: List<FieldError>? = null
+)
+
+data class Meta(
+    val page: Int? = null,
+    val size: Int? = null,
+    val totalElements: Long? = null,
+    val totalPages: Int? = null
+)
+
+// Extension functions for easy response creation
+fun <T> T.toSuccessResponse(): ApiResponse<T> = ApiResponse(success = true, data = this)
+
+fun <T> Page<T>.toPagedResponse(): ApiResponse<List<T>> = ApiResponse(
+    success = true,
+    data = this.content,
+    meta = Meta(
+        page = this.number,
+        size = this.size,
+        totalElements = this.totalElements,
+        totalPages = this.totalPages
+    )
 )
 ```
 
-### Debounce Hook
+### REST API Controller
 
-```typescript
-export function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value)
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value)
-    }, delay)
-
-    return () => clearTimeout(handler)
-  }, [value, delay])
-
-  return debouncedValue
-}
-
-// Usage
-const [searchQuery, setSearchQuery] = useState('')
-const debouncedQuery = useDebounce(searchQuery, 500)
-
-useEffect(() => {
-  if (debouncedQuery) {
-    performSearch(debouncedQuery)
-  }
-}, [debouncedQuery])
-```
-
-## State Management Patterns
-
-### Context + Reducer Pattern
-
-```typescript
-interface State {
-  markets: Market[]
-  selectedMarket: Market | null
-  loading: boolean
-}
-
-type Action =
-  | { type: 'SET_MARKETS'; payload: Market[] }
-  | { type: 'SELECT_MARKET'; payload: Market }
-  | { type: 'SET_LOADING'; payload: boolean }
-
-function reducer(state: State, action: Action): State {
-  switch (action.type) {
-    case 'SET_MARKETS':
-      return { ...state, markets: action.payload }
-    case 'SELECT_MARKET':
-      return { ...state, selectedMarket: action.payload }
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload }
-    default:
-      return state
-  }
-}
-
-const MarketContext = createContext<{
-  state: State
-  dispatch: Dispatch<Action>
-} | undefined>(undefined)
-
-export function MarketProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, {
-    markets: [],
-    selectedMarket: null,
-    loading: false
-  })
-
-  return (
-    <MarketContext.Provider value={{ state, dispatch }}>
-      {children}
-    </MarketContext.Provider>
-  )
-}
-
-export function useMarkets() {
-  const context = useContext(MarketContext)
-  if (!context) throw new Error('useMarkets must be used within MarketProvider')
-  return context
-}
-```
-
-## Performance Optimization
-
-### Memoization
-
-```typescript
-// ✅ useMemo for expensive computations
-const sortedMarkets = useMemo(() => {
-  return markets.sort((a, b) => b.volume - a.volume)
-}, [markets])
-
-// ✅ useCallback for functions passed to children
-const handleSearch = useCallback((query: string) => {
-  setSearchQuery(query)
-}, [])
-
-// ✅ React.memo for pure components
-export const MarketCard = React.memo<MarketCardProps>(({ market }) => {
-  return (
-    <div className="market-card">
-      <h3>{market.name}</h3>
-      <p>{market.description}</p>
-    </div>
-  )
-})
-```
-
-### Code Splitting & Lazy Loading
-
-```typescript
-import { lazy, Suspense } from 'react'
-
-// ✅ Lazy load heavy components
-const HeavyChart = lazy(() => import('./HeavyChart'))
-const ThreeJsBackground = lazy(() => import('./ThreeJsBackground'))
-
-export function Dashboard() {
-  return (
-    <div>
-      <Suspense fallback={<ChartSkeleton />}>
-        <HeavyChart data={data} />
-      </Suspense>
-
-      <Suspense fallback={null}>
-        <ThreeJsBackground />
-      </Suspense>
-    </div>
-  )
-}
-```
-
-### Virtualization for Long Lists
-
-```typescript
-import { useVirtualizer } from '@tanstack/react-virtual'
-
-export function VirtualMarketList({ markets }: { markets: Market[] }) {
-  const parentRef = useRef<HTMLDivElement>(null)
-
-  const virtualizer = useVirtualizer({
-    count: markets.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 100,  // Estimated row height
-    overscan: 5  // Extra items to render
-  })
-
-  return (
-    <div ref={parentRef} style={{ height: '600px', overflow: 'auto' }}>
-      <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          position: 'relative'
-        }}
-      >
-        {virtualizer.getVirtualItems().map(virtualRow => (
-          <div
-            key={virtualRow.index}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: `${virtualRow.size}px`,
-              transform: `translateY(${virtualRow.start}px)`
-            }}
-          >
-            <MarketCard market={markets[virtualRow.index]} />
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-```
-
-## Form Handling Patterns
-
-### Controlled Form with Validation
-
-```typescript
-interface FormData {
-  name: string
-  description: string
-  endDate: string
-}
-
-interface FormErrors {
-  name?: string
-  description?: string
-  endDate?: string
-}
-
-export function CreateMarketForm() {
-  const [formData, setFormData] = useState<FormData>({
-    name: '',
-    description: '',
-    endDate: ''
-  })
-
-  const [errors, setErrors] = useState<FormErrors>({})
-
-  const validate = (): boolean => {
-    const newErrors: FormErrors = {}
-
-    if (!formData.name.trim()) {
-      newErrors.name = 'Name is required'
-    } else if (formData.name.length > 200) {
-      newErrors.name = 'Name must be under 200 characters'
+```kotlin
+@RestController
+@RequestMapping("/api/markets")
+class MarketApiController(
+    private val marketService: MarketService
+) {
+    @GetMapping
+    fun findAll(
+        @RequestParam(defaultValue = "0") page: Int,
+        @RequestParam(defaultValue = "20") size: Int
+    ): ApiResponse<List<MarketResponse>> {
+        val markets = marketService.findAll(PageRequest.of(page, size))
+        return markets.map { it.toResponse() }.toPagedResponse()
     }
 
-    if (!formData.description.trim()) {
-      newErrors.description = 'Description is required'
+    @GetMapping("/{id}")
+    fun findById(@PathVariable id: Long): ApiResponse<MarketResponse> {
+        val market = marketService.findById(id)
+        return market.toResponse().toSuccessResponse()
     }
 
-    if (!formData.endDate) {
-      newErrors.endDate = 'End date is required'
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    fun create(@Valid @RequestBody request: CreateMarketRequest): ApiResponse<MarketResponse> {
+        val market = marketService.create(request)
+        return market.toResponse().toSuccessResponse()
     }
 
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-
-    if (!validate()) return
-
-    try {
-      await createMarket(formData)
-      // Success handling
-    } catch (error) {
-      // Error handling
+    @PutMapping("/{id}")
+    fun update(
+        @PathVariable id: Long,
+        @Valid @RequestBody request: UpdateMarketRequest
+    ): ApiResponse<MarketResponse> {
+        val market = marketService.update(id, request)
+        return market.toResponse().toSuccessResponse()
     }
-  }
 
-  return (
-    <form onSubmit={handleSubmit}>
-      <input
-        value={formData.name}
-        onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
-        placeholder="Market name"
-      />
-      {errors.name && <span className="error">{errors.name}</span>}
-
-      {/* Other fields */}
-
-      <button type="submit">Create Market</button>
-    </form>
-  )
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun delete(@PathVariable id: Long) {
+        marketService.delete(id)
+    }
 }
 ```
 
-## Error Boundary Pattern
+### DTO Mapping
 
-```typescript
-interface ErrorBoundaryState {
-  hasError: boolean
-  error: Error | null
+```kotlin
+// Response DTO
+data class MarketResponse(
+    val id: Long,
+    val name: String,
+    val description: String?,
+    val status: String,
+    val volume: Long,
+    val createdAt: Instant,
+    val updatedAt: Instant
+)
+
+// Extension function for mapping
+fun Market.toResponse(): MarketResponse = MarketResponse(
+    id = this.id,
+    name = this.name,
+    description = this.description,
+    status = this.status.name,
+    volume = this.volume,
+    createdAt = this.createdAt,
+    updatedAt = this.updatedAt
+)
+
+// Request DTO with validation
+data class CreateMarketRequest(
+    @field:NotBlank(message = "Name is required")
+    @field:Size(max = 200, message = "Name must be under 200 characters")
+    val name: String,
+
+    @field:Size(max = 2000, message = "Description must be under 2000 characters")
+    val description: String?
+)
+
+// Form DTO for Thymeleaf
+data class MarketForm(
+    var name: String = "",
+    var description: String = "",
+    var status: MarketStatus = MarketStatus.PENDING
+) {
+    fun toRequest() = CreateMarketRequest(name, description)
 }
+```
 
-export class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  ErrorBoundaryState
-> {
-  state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  }
+## Error Response Patterns
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
-  }
+### Consistent Error Format
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error boundary caught:', error, errorInfo)
-  }
+```kotlin
+@RestControllerAdvice
+class ApiExceptionHandler {
 
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div className="error-fallback">
-          <h2>Something went wrong</h2>
-          <p>{this.state.error?.message}</p>
-          <button onClick={() => this.setState({ hasError: false })}>
-            Try again
-          </button>
-        </div>
-      )
+    @ExceptionHandler(EntityNotFoundException::class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    fun handleNotFound(e: EntityNotFoundException): ApiResponse<Nothing> {
+        return ApiResponse(
+            success = false,
+            error = ErrorDetail(
+                code = "NOT_FOUND",
+                message = e.message ?: "Resource not found"
+            )
+        )
     }
 
-    return this.props.children
-  }
-}
+    @ExceptionHandler(MethodArgumentNotValidException::class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    fun handleValidation(e: MethodArgumentNotValidException): ApiResponse<Nothing> {
+        val fieldErrors = e.bindingResult.fieldErrors.map { error ->
+            FieldError(error.field, error.defaultMessage ?: "Invalid value")
+        }
 
-// Usage
-<ErrorBoundary>
-  <App />
-</ErrorBoundary>
-```
-
-## Animation Patterns
-
-### Framer Motion Animations
-
-```typescript
-import { motion, AnimatePresence } from 'framer-motion'
-
-// ✅ List animations
-export function AnimatedMarketList({ markets }: { markets: Market[] }) {
-  return (
-    <AnimatePresence>
-      {markets.map(market => (
-        <motion.div
-          key={market.id}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-        >
-          <MarketCard market={market} />
-        </motion.div>
-      ))}
-    </AnimatePresence>
-  )
-}
-
-// ✅ Modal animations
-export function Modal({ isOpen, onClose, children }: ModalProps) {
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <>
-          <motion.div
-            className="modal-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-          />
-          <motion.div
-            className="modal-content"
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-          >
-            {children}
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  )
-}
-```
-
-## Accessibility Patterns
-
-### Keyboard Navigation
-
-```typescript
-export function Dropdown({ options, onSelect }: DropdownProps) {
-  const [isOpen, setIsOpen] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(0)
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setActiveIndex(i => Math.min(i + 1, options.length - 1))
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setActiveIndex(i => Math.max(i - 1, 0))
-        break
-      case 'Enter':
-        e.preventDefault()
-        onSelect(options[activeIndex])
-        setIsOpen(false)
-        break
-      case 'Escape':
-        setIsOpen(false)
-        break
+        return ApiResponse(
+            success = false,
+            error = ErrorDetail(
+                code = "VALIDATION_ERROR",
+                message = "Request validation failed",
+                details = fieldErrors
+            )
+        )
     }
-  }
-
-  return (
-    <div
-      role="combobox"
-      aria-expanded={isOpen}
-      aria-haspopup="listbox"
-      onKeyDown={handleKeyDown}
-    >
-      {/* Dropdown implementation */}
-    </div>
-  )
 }
 ```
 
-### Focus Management
+## Static Resources Configuration
 
-```typescript
-export function Modal({ isOpen, onClose, children }: ModalProps) {
-  const modalRef = useRef<HTMLDivElement>(null)
-  const previousFocusRef = useRef<HTMLElement | null>(null)
+```kotlin
+@Configuration
+class WebConfig : WebMvcConfigurer {
 
-  useEffect(() => {
-    if (isOpen) {
-      // Save currently focused element
-      previousFocusRef.current = document.activeElement as HTMLElement
+    override fun addResourceHandlers(registry: ResourceHandlerRegistry) {
+        registry.addResourceHandler("/static/**")
+            .addResourceLocations("classpath:/static/")
+            .setCacheControl(CacheControl.maxAge(365, TimeUnit.DAYS))
 
-      // Focus modal
-      modalRef.current?.focus()
-    } else {
-      // Restore focus when closing
-      previousFocusRef.current?.focus()
+        registry.addResourceHandler("/webjars/**")
+            .addResourceLocations("classpath:/META-INF/resources/webjars/")
     }
-  }, [isOpen])
 
-  return isOpen ? (
-    <div
-      ref={modalRef}
-      role="dialog"
-      aria-modal="true"
-      tabIndex={-1}
-      onKeyDown={e => e.key === 'Escape' && onClose()}
-    >
-      {children}
-    </div>
-  ) : null
+    override fun addViewControllers(registry: ViewControllerRegistry) {
+        registry.addViewController("/").setViewName("redirect:/markets")
+        registry.addViewController("/login").setViewName("auth/login")
+    }
 }
 ```
 
-**Remember**: Modern frontend patterns enable maintainable, performant user interfaces. Choose patterns that fit your project complexity.
+**Remember**: Choose between server-side rendering (Thymeleaf + HTMX) for traditional web apps or pure REST APIs for SPA/mobile backends. Both patterns work well with Spring Boot.
